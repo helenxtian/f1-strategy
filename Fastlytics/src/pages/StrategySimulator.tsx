@@ -318,10 +318,16 @@ const StrategySimulator = () => {
             </CardHeader>
             <CardContent className="space-y-2 text-sm">
               <div className="font-semibold">
-                Best: {predictionResult.predicted_best_scenario} ({Math.round(predictionResult.confidence * 100)}% confidence)
+                Best: {predictionResult.tie_detected ? 'No clear winner' : predictionResult.predicted_best_scenario} ({Math.round(predictionResult.confidence * 100)}% confidence)
               </div>
               <div className="text-gray-300">
                 Driver: {predictionResult.target_driver} • Rejoin: P{predictionResult.expected_rejoin_position ?? '-'} • Advantage: {predictionResult.expected_time_delta_to_second_best.toFixed(2)}s
+              </div>
+              <div className="text-gray-300">
+                Tie threshold: {predictionResult.tie_threshold_seconds.toFixed(1)}s • Top probabilities: {predictionResult.scenario_probabilities.slice(0, 3).map((p) => `${p.scenario} ${Math.round(p.probability * 100)}%`).join(' • ')}
+              </div>
+              <div className="text-gray-400">
+                Factors — margin: {predictionResult.confidence_factors.margin_score.toFixed(2)}, rules: {predictionResult.confidence_factors.rule_agreement_score.toFixed(2)}, tire risk: {predictionResult.confidence_factors.tire_age_risk_score.toFixed(2)}, traffic risk: {predictionResult.confidence_factors.traffic_risk_score.toFixed(2)}, laps: {predictionResult.confidence_factors.laps_remaining_score.toFixed(2)}
               </div>
               <div className="text-gray-400">{predictionResult.recommendation_summary}</div>
             </CardContent>

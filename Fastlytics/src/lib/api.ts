@@ -285,11 +285,25 @@ export interface StrategyPredictionResponse {
     lap: number;
     total_laps: number;
     predicted_best_scenario: string;
+    tie_detected: boolean;
+    tie_threshold_seconds: number;
     confidence: number;
     expected_rejoin_position: number | null;
     expected_time_delta_to_second_best: number;
     recommendation_summary: string;
     scenarios: ScenarioOutcome[];
+    scenario_probabilities: {
+        scenario: string;
+        probability: number;
+        time_delta_to_best: number;
+    }[];
+    confidence_factors: {
+        margin_score: number;
+        rule_agreement_score: number;
+        tire_age_risk_score: number;
+        traffic_risk_score: number;
+        laps_remaining_score: number;
+    };
 }
 
 // --- API Fetch Functions ---

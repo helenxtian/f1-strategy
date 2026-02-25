@@ -53,16 +53,34 @@ class StrategyPredictionRequest(BaseModel):
     pit_loss_seconds: float = 22.0
 
 
+class ScenarioProbability(BaseModel):
+    scenario: str
+    probability: float
+    time_delta_to_best: float
+
+
+class ConfidenceFactors(BaseModel):
+    margin_score: float
+    rule_agreement_score: float
+    tire_age_risk_score: float
+    traffic_risk_score: float
+    laps_remaining_score: float
+
+
 class StrategyPredictionResponse(BaseModel):
     target_driver: str
     lap: int
     total_laps: int
     predicted_best_scenario: str
+    tie_detected: bool = False
+    tie_threshold_seconds: float = 0.2
     confidence: float
     expected_rejoin_position: Optional[int] = None
     expected_time_delta_to_second_best: float
     recommendation_summary: str
     scenarios: List[ScenarioOutcome] = Field(default_factory=list)
+    scenario_probabilities: List[ScenarioProbability] = Field(default_factory=list)
+    confidence_factors: ConfidenceFactors
 
 
 class ReplayResponse(BaseModel):
