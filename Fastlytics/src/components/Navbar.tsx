@@ -6,9 +6,7 @@ import {
   Menu,
   X,
   Gauge, 
-  Flag,
-  Users,
-  UsersRound,
+  Cpu,
   ChevronRight
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
@@ -44,9 +42,7 @@ const Navbar = () => {
   // Expanded Nav Items
   const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: <LayoutDashboard size={18} /> },
-    { name: 'Races', href: '/races', icon: <Flag size={18} /> },
-    { name: 'Drivers', href: '/standings/drivers', icon: <Users size={18} /> },
-    { name: 'Teams', href: '/standings/teams', icon: <UsersRound size={18} /> },
+    { name: 'Strategy Simulator', href: '/strategy-simulator', icon: <Cpu size={18} /> },
   ];
 
   // Loading state while checking auth

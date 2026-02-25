@@ -143,22 +143,35 @@ const Landing: React.FC = () => {
           </motion.h1>
         </motion.div>
         
+        <motion.h2
+          variants={fadeInUp}
+          className="text-3xl md:text-5xl font-bold mb-6"
+        >
+          Ready to <span className="text-red-500">Accelerate</span> Your F1 Analysis?
+        </motion.h2>
+
         <motion.p 
           variants={fadeInUp} 
           className="text-xl md:text-2xl text-gray-300 mb-8 max-w-3xl mx-auto leading-relaxed"
         >
-          Unlock the speed. Dive deep into Formula 1 data with intuitive visualizations and powerful race analysis.
+          Dive into detailed race analytics, telemetry data, and championship insights today.
         </motion.p>
 
         {/* Remove Product Hunt Badge */}
         
-        <motion.div variants={fadeInUp}>
-            <Link to="/dashboard">
+        <motion.div variants={fadeInUp} className="flex flex-col sm:flex-row items-center justify-center gap-4">
+          <Link to="/dashboard">
             <Button size="lg" className="bg-red-600 hover:bg-red-700 text-white font-semibold px-8 py-6 rounded-xl shadow-[0_0_20px_rgba(225,29,72,0.3)] hover:shadow-[0_0_30px_rgba(225,29,72,0.5)] transition-all duration-300 text-lg">
-                Try for Free!
+              Explore Dashboard
               <ArrowRight className="ml-2 h-5 w-5" />
-              </Button>
-            </Link>
+            </Button>
+          </Link>
+          <Link to="/strategy-simulator">
+            <Button size="lg" variant="outline" className="border-gray-600 bg-transparent hover:bg-gray-800 text-white font-semibold px-8 py-6 rounded-xl transition-all duration-300 text-lg">
+              Explore Strategy Simulator
+              <ArrowRight className="ml-2 h-5 w-5" />
+            </Button>
+          </Link>
         </motion.div>
         
         {/* Scroll indicator */}
@@ -542,31 +555,6 @@ const Landing: React.FC = () => {
         </motion.div>
          </section>
 
-        {/* Final CTA Section */}
-      <section className="relative py-24 md:py-40 px-4 overflow-hidden">
-        <div className="absolute inset-0 bg-gradient-to-b from-red-900/10 to-black/50 z-0"></div>
-        
-        <motion.div
-          className="max-w-4xl mx-auto relative z-10 text-center"
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8 }}
-          viewport={{ once: true, amount: 0.2 }}
-        >
-          <h2 className="text-4xl md:text-6xl font-bold mb-8">
-            Ready to <span className="text-red-500">Accelerate</span> Your F1 Analysis?
-          </h2>
-          <p className="text-xl text-gray-300 mb-10 max-w-2xl mx-auto">
-            Dive into detailed race analytics, telemetry data, and championship insights today.
-          </p>
-             <Link to="/dashboard">
-            <Button size="lg" className="bg-red-600 hover:bg-red-700 text-white font-semibold px-10 py-6 rounded-xl shadow-[0_0_20px_rgba(225,29,72,0.3)] hover:shadow-[0_0_30px_rgba(225,29,72,0.5)] transition-all duration-300 text-xl">
-                Explore Dashboard
-              <ArrowRight className="ml-2 h-6 w-6" />
-              </Button>
-            </Link>
-        </motion.div>
-        </section>
       </div>
   );
 };

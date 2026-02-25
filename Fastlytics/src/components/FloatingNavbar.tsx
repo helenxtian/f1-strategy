@@ -109,7 +109,15 @@ const FloatingNavbar: React.FC<FloatingNavbarProps> = ({ transparent = false }) 
             <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
               <Link to="/dashboard">
                 <Button variant="default" size="sm" className="ml-4 bg-red-600 hover:bg-red-700 text-white">
-                  Explore Dashboard
+                  Dashboard
+                  <ChevronRight className="ml-1 h-4 w-4" />
+                </Button>
+              </Link>
+            </motion.div>
+            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+              <Link to="/strategy-simulator">
+                <Button variant="outline" size="sm" className="ml-2 border-gray-600 bg-transparent hover:bg-gray-800 text-white">
+                  Strategy Simulator
                   <ChevronRight className="ml-1 h-4 w-4" />
                 </Button>
               </Link>
@@ -145,10 +153,16 @@ const FloatingNavbar: React.FC<FloatingNavbarProps> = ({ transparent = false }) 
                     ))}
                   </div>
                   
-                  <div className="pt-6 mt-6 border-t border-gray-800">
+                  <div className="pt-6 mt-6 border-t border-gray-800 space-y-3">
                     <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)}>
                       <Button className="w-full bg-red-600 hover:bg-red-700 text-white">
-                        Explore Dashboard
+                        Dashboard
+                        <ChevronRight className="ml-1 h-4 w-4" />
+                      </Button>
+                    </Link>
+                    <Link to="/strategy-simulator" onClick={() => setMobileMenuOpen(false)}>
+                      <Button variant="outline" className="w-full border-gray-600 bg-transparent hover:bg-gray-800 text-white">
+                        Strategy Simulator
                         <ChevronRight className="ml-1 h-4 w-4" />
                       </Button>
                     </Link>

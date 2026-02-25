@@ -7,12 +7,15 @@ from .schemas import (
     ScenarioEvaluationRequest,
     StrategyPredictionRequest,
     StrategyPredictionResponse,
+    RaceOutcomeForecastRequest,
+    RaceOutcomeForecastResponse,
 )
 from .replay import build_race_state_timeline
 from .engine import evaluate_strategy_rules
 from .simulator import evaluate_pit_scenarios
 from .predictor import predict_best_strategy
 from .ml_model import train_strategy_ml_model, load_strategy_ml_model, predict_pit_now_probability
+from .race_outcome import forecast_race_outcome
 
 __all__ = [
     "RaceState",
@@ -23,6 +26,8 @@ __all__ = [
     "ScenarioEvaluationRequest",
     "StrategyPredictionRequest",
     "StrategyPredictionResponse",
+    "RaceOutcomeForecastRequest",
+    "RaceOutcomeForecastResponse",
     "build_race_state_timeline",
     "evaluate_strategy_rules",
     "evaluate_pit_scenarios",
@@ -30,4 +35,5 @@ __all__ = [
     "train_strategy_ml_model",
     "load_strategy_ml_model",
     "predict_pit_now_probability",
+    "forecast_race_outcome",
 ]

@@ -7,6 +7,7 @@ import { useQuery } from '@tanstack/react-query';
 import { useSeason } from '@/contexts/SeasonContext';
 import {
   evaluateStrategyState,
+  fetchRaceOutcomeForecast,
   fetchStrategyModelInfo,
   fetchPrediction,
   fetchReplayTimeline,
@@ -14,6 +15,7 @@ import {
   simulateStrategyScenarios,
   trainStrategyModel,
   ReplayTick,
+  RaceOutcomeForecastResponse,
   StrategyModelInfoResponse,
   ScheduleEvent,
   StrategyPredictionResponse,
@@ -31,6 +33,7 @@ const StrategySimulator = () => {
   const [evalResult, setEvalResult] = useState<StrategyEvaluationResponse | null>(null);
   const [simResult, setSimResult] = useState<ScenarioSimulationResponse | null>(null);
   const [predictionResult, setPredictionResult] = useState<StrategyPredictionResponse | null>(null);
+  const [raceOutcomeResult, setRaceOutcomeResult] = useState<RaceOutcomeForecastResponse | null>(null);
   const [trainStatus, setTrainStatus] = useState<string>('');
   const [modelInfo, setModelInfo] = useState<StrategyModelInfoResponse | null>(null);
   const [loading, setLoading] = useState(false);
@@ -100,6 +103,7 @@ const StrategySimulator = () => {
       setEvalResult(null);
       setSimResult(null);
       setPredictionResult(null);
+      setRaceOutcomeResult(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load replay');
     } finally {
@@ -148,6 +152,20 @@ const StrategySimulator = () => {
       setPredictionResult(result);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to predict strategy');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const runRaceOutcomeForecast = async () => {
+    if (!currentTick) return;
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await fetchRaceOutcomeForecast(currentTick, 300, 22, true);
+      setRaceOutcomeResult(result);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Failed to forecast race outcome');
     } finally {
       setLoading(false);
     }
@@ -285,6 +303,7 @@ const StrategySimulator = () => {
                 <Button onClick={runEvaluation} disabled={loading}>Evaluate Pit Rules</Button>
                 <Button onClick={runSimulation} disabled={loading || !selectedDriver}>Simulate Pit Options</Button>
                 <Button onClick={runPrediction} disabled={loading || !selectedDriver}>Predict Best Strategy</Button>
+                <Button onClick={runRaceOutcomeForecast} disabled={loading}>Forecast Race Outcome</Button>
                 <Button onClick={runTrainModel} disabled={loading} variant="secondary" size="sm">Train Model</Button>
                 <div className="w-[220px]">
                   <Select
@@ -384,6 +403,50 @@ const StrategySimulator = () => {
               </div>
             )}
           </div>
+        )}
+
+        {raceOutcomeResult && (
+          <Card className="bg-gray-900/60 border-gray-700">
+            <CardHeader>
+              <CardTitle>Race Outcome Forecast (Runs: {raceOutcomeResult.runs})</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="text-gray-400">{raceOutcomeResult.assumptions.join(' • ')}</div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="text-gray-300 border-b border-gray-700">
+                    <tr>
+                      <th className="py-2 pr-4">Driver</th>
+                      <th className="py-2 pr-4">Exp Pos</th>
+                      <th className="py-2 pr-4">Win</th>
+                      <th className="py-2 pr-4">Podium</th>
+                      <th className="py-2 pr-4">Top 10</th>
+                      <th className="py-2 pr-4">Time Δ to Winner</th>
+                      <th className="py-2 pr-4">Top Finish Dist</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {raceOutcomeResult.drivers.slice(0, 12).map((driver) => (
+                      <tr key={driver.driver} className="border-b border-gray-800/70">
+                        <td className="py-2 pr-4 font-semibold">{driver.driver}</td>
+                        <td className="py-2 pr-4">{driver.expected_finish_position.toFixed(2)}</td>
+                        <td className="py-2 pr-4">{(driver.probability_win * 100).toFixed(1)}%</td>
+                        <td className="py-2 pr-4">{(driver.probability_podium * 100).toFixed(1)}%</td>
+                        <td className="py-2 pr-4">{(driver.probability_top_10 * 100).toFixed(1)}%</td>
+                        <td className="py-2 pr-4">{driver.expected_total_time_delta.toFixed(2)}s [{driver.time_delta_ci_lower.toFixed(2)}, {driver.time_delta_ci_upper.toFixed(2)}]</td>
+                        <td className="py-2 pr-4 text-gray-300">
+                          {driver.finish_position_distribution
+                            .slice(0, 3)
+                            .map((item) => `P${item.position}:${(item.probability * 100).toFixed(0)}%`)
+                            .join(' • ')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </div>
     </div>

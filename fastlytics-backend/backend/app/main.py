@@ -10,6 +10,7 @@ from typing import Dict, List
 
 from .strategy import (
     RaceState,
+    RaceOutcomeForecastRequest,
     ReplayResponse,
     ScenarioEvaluationRequest,
     StrategyPredictionRequest,
@@ -18,6 +19,7 @@ from .strategy import (
     load_strategy_ml_model,
     evaluate_pit_scenarios,
     predict_best_strategy,
+    forecast_race_outcome,
     train_strategy_ml_model,
 )
 
@@ -179,6 +181,20 @@ def predict_strategy(request: StrategyPredictionRequest):
             pit_loss_seconds=request.pit_loss_seconds,
         )
         return prediction.model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/prediction/race-outcome")
+def predict_race_outcome(request: RaceOutcomeForecastRequest):
+    try:
+        forecast = forecast_race_outcome(
+            state=request.state,
+            runs=request.runs,
+            pit_loss_seconds=request.pit_loss_seconds,
+            use_ml_correction=request.use_ml_correction,
+        )
+        return forecast.model_dump()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

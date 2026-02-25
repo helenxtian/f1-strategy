@@ -339,6 +339,31 @@ export interface StrategyPredictionResponse {
     };
 }
 
+export interface FinishPositionProbability {
+    position: number;
+    probability: number;
+}
+
+export interface DriverRaceOutcomeForecast {
+    driver: string;
+    expected_finish_position: number;
+    expected_total_time_delta: number;
+    finish_position_distribution: FinishPositionProbability[];
+    probability_win: number;
+    probability_podium: number;
+    probability_top_10: number;
+    time_delta_ci_lower: number;
+    time_delta_ci_upper: number;
+}
+
+export interface RaceOutcomeForecastResponse {
+    lap: number;
+    total_laps: number;
+    runs: number;
+    assumptions: string[];
+    drivers: DriverRaceOutcomeForecast[];
+}
+
 // --- API Fetch Functions ---
 
 /** Fetches available sessions for a given event */
@@ -1033,6 +1058,27 @@ export const fetchPrediction = async (
         body: JSON.stringify(params),
     });
     if (!response.ok) throw new Error(`Strategy prediction failed: ${response.status}`);
+    return response.json();
+};
+
+export const fetchRaceOutcomeForecast = async (
+    state: ReplayTick,
+    runs: number = 300,
+    pitLossSeconds: number = 22,
+    useMlCorrection: boolean = true
+): Promise<RaceOutcomeForecastResponse> => {
+    const url = `${API_BASE_URL}/api/prediction/race-outcome`;
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+            state,
+            runs,
+            pit_loss_seconds: pitLossSeconds,
+            use_ml_correction: useMlCorrection,
+        }),
+    });
+    if (!response.ok) throw new Error(`Race outcome forecast failed: ${response.status}`);
     return response.json();
 };
 

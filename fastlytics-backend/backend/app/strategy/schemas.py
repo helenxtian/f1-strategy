@@ -86,6 +86,38 @@ class StrategyPredictionResponse(BaseModel):
     confidence_factors: ConfidenceFactors
 
 
+class FinishPositionProbability(BaseModel):
+    position: int
+    probability: float
+
+
+class DriverRaceOutcomeForecast(BaseModel):
+    driver: str
+    expected_finish_position: float
+    expected_total_time_delta: float
+    finish_position_distribution: List[FinishPositionProbability] = Field(default_factory=list)
+    probability_win: float
+    probability_podium: float
+    probability_top_10: float
+    time_delta_ci_lower: float
+    time_delta_ci_upper: float
+
+
+class RaceOutcomeForecastRequest(BaseModel):
+    state: RaceState
+    runs: int = 300
+    pit_loss_seconds: float = 22.0
+    use_ml_correction: bool = True
+
+
+class RaceOutcomeForecastResponse(BaseModel):
+    lap: int
+    total_laps: int
+    runs: int
+    assumptions: List[str] = Field(default_factory=list)
+    drivers: List[DriverRaceOutcomeForecast] = Field(default_factory=list)
+
+
 class ReplayResponse(BaseModel):
     year: int
     event: str
