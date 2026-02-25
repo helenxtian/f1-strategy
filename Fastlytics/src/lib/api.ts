@@ -220,6 +220,78 @@ export interface TeamPaceData {
     stdDev: number;
 }
 
+export interface ReplayDriverState {
+    driver: string;
+    position: number | null;
+    compound: string | null;
+    tire_age: number;
+    last_lap_time: number | null;
+    gap_ahead: number | null;
+    stint_number?: number | null;
+    is_pit_lap?: boolean;
+}
+
+export interface ReplayTick {
+    lap: number;
+    total_laps: number;
+    timestamp?: string | null;
+    drivers: ReplayDriverState[];
+}
+
+export interface ReplayResponse {
+    year: number;
+    event: string;
+    session: string;
+    ticks: ReplayTick[];
+}
+
+export interface StrategyDecision {
+    driver: string;
+    recommend_pit: boolean;
+    reasons: string[];
+    confidence: number;
+}
+
+export interface StrategyEvaluationResponse {
+    lap: number;
+    total_laps: number;
+    decisions: StrategyDecision[];
+}
+
+export interface ScenarioOutcome {
+    scenario: string;
+    pit_lap: number | null;
+    estimated_total_time: number;
+    estimated_rejoin_position: number | null;
+    summary: string;
+}
+
+export interface ScenarioSimulationResponse {
+    target_driver: string;
+    lap: number;
+    total_laps: number;
+    scenarios: ScenarioOutcome[];
+    best: ScenarioOutcome | null;
+}
+
+export interface StrategyPredictionRequest {
+    state: ReplayTick;
+    target_driver: string;
+    pit_loss_seconds?: number;
+}
+
+export interface StrategyPredictionResponse {
+    target_driver: string;
+    lap: number;
+    total_laps: number;
+    predicted_best_scenario: string;
+    confidence: number;
+    expected_rejoin_position: number | null;
+    expected_time_delta_to_second_best: number;
+    recommendation_summary: string;
+    scenarios: ScenarioOutcome[];
+}
+
 // --- API Fetch Functions ---
 
 /** Fetches available sessions for a given event */
@@ -588,6 +660,54 @@ export const fetchSessionWeather = async (year: number, event: string, session: 
     }
 };
 
+export const fetchReplayTimeline = async (
+    year: number,
+    eventSlug: string,
+    session: string = 'R',
+    lapStep: number = 1,
+    maxLaps?: number
+): Promise<ReplayResponse> => {
+    const params = new URLSearchParams({
+        session,
+        lap_step: String(lapStep),
+    });
+    if (maxLaps !== undefined) params.append('max_laps', String(maxLaps));
+    const url = `${API_BASE_URL}/api/replay/${year}/${eventSlug}?${params.toString()}`;
+    const response = await fetch(url, { headers: getHeaders() });
+    if (!response.ok) throw new Error(`Replay fetch failed: ${response.status}`);
+    return response.json();
+};
+
+export const evaluateStrategyState = async (state: ReplayTick): Promise<StrategyEvaluationResponse> => {
+    const url = `${API_BASE_URL}/api/strategy/evaluate`;
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(state),
+    });
+    if (!response.ok) throw new Error(`Strategy evaluate failed: ${response.status}`);
+    return response.json();
+};
+
+export const simulateStrategyScenarios = async (
+    state: ReplayTick,
+    targetDriver: string,
+    pitLossSeconds: number = 22
+): Promise<ScenarioSimulationResponse> => {
+    const url = `${API_BASE_URL}/api/strategy/simulate`;
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify({
+            state,
+            target_driver: targetDriver,
+            pit_loss_seconds: pitLossSeconds,
+        }),
+    });
+    if (!response.ok) throw new Error(`Strategy simulate failed: ${response.status}`);
+    return response.json();
+};
+
 /** Fetches detailed information for a specific driver. */
 export const getDriverDetails = async (driverId: string): Promise<DriverDetails> => {
     const url = `${API_BASE_URL}/api/driver/${driverId}`;
@@ -856,8 +976,15 @@ export const fetchTeamPace = async (
     }
 };
 
-// --- Stub for fetchPrediction ---
-export async function fetchPrediction(params: any) {
-  // TODO: Replace with real backend call
-  return { prediction: 42 };
-}
+export const fetchPrediction = async (
+    params: StrategyPredictionRequest
+): Promise<StrategyPredictionResponse> => {
+    const url = `${API_BASE_URL}/api/prediction/strategy`;
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: getHeaders(),
+        body: JSON.stringify(params),
+    });
+    if (!response.ok) throw new Error(`Strategy prediction failed: ${response.status}`);
+    return response.json();
+};

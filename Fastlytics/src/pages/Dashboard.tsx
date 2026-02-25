@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom'; // Import Link
+import { useNavigate } from 'react-router-dom'; // Import Link
 import { motion, useInView, useScroll, useTransform } from 'framer-motion'; // Added framer-motion imports
 import { Award, Flag, Lock, Cpu, Timer, User, Gauge, ArrowRight, CreditCard, Calendar, Clock, Users, Trophy, ChevronDown } from 'lucide-react'; // Added Trophy and ChevronDown icons
 import Navbar from '@/components/Navbar';
@@ -258,6 +258,12 @@ const Dashboard = () => {
               className="flex items-center gap-4"
               variants={fadeInUp}
             >
+              <Button
+                onClick={() => navigate('/strategy-simulator')}
+                className="bg-red-600 hover:bg-red-500 text-white"
+              >
+                Strategy Simulator
+              </Button>
               <div className="relative group">
                 <Select
                   value={String(selectedYear)}

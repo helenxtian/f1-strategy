@@ -9,6 +9,7 @@ import Race from "./pages/Race";
 import TeamStandings from "./pages/TeamStandings";
 import DriverStandings from "./pages/DriverStandings";
 import Races from "./pages/Races";
+import StrategySimulator from "./pages/StrategySimulator";
 import NotFound from "./pages/NotFound";
 import PrivacyPolicy from "./pages/PrivacyPolicy";
 import TermsOfService from "./pages/TermsOfService";
@@ -57,6 +58,7 @@ const App = () => (
 
               {/* All routes are now public */}
               <Route path="/dashboard" element={<MainLayout><Dashboard /></MainLayout>} />
+              <Route path="/strategy-simulator" element={<MainLayout><StrategySimulator /></MainLayout>} />
               <Route path="/race/:raceId" element={<MainLayout><Race /></MainLayout>} />
               <Route path="/races" element={<MainLayout><Races /></MainLayout>} />
               <Route path="/standings/teams" element={<MainLayout><TeamStandings /></MainLayout>} />
