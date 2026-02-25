@@ -280,6 +280,36 @@ export interface StrategyPredictionRequest {
     pit_loss_seconds?: number;
 }
 
+export interface StrategyModelTrainResponse {
+    model_path: string;
+    version: string;
+    trained_at: string;
+    years: number[];
+    training_samples: number;
+    training_accuracy: number;
+    validation_samples?: number;
+    validation_accuracy?: number;
+    validation_roc_auc?: number;
+    validation_brier?: number;
+    validation_log_loss?: number;
+    validation_ece?: number;
+}
+
+export interface StrategyModelInfoResponse {
+    available: boolean;
+    version?: string;
+    trained_at?: string;
+    years?: number[];
+    training_samples?: number;
+    training_accuracy?: number;
+    validation_samples?: number;
+    validation_accuracy?: number;
+    validation_roc_auc?: number;
+    validation_brier?: number;
+    validation_log_loss?: number;
+    validation_ece?: number;
+}
+
 export interface StrategyPredictionResponse {
     target_driver: string;
     lap: number;
@@ -288,6 +318,9 @@ export interface StrategyPredictionResponse {
     tie_detected: boolean;
     tie_threshold_seconds: number;
     confidence: number;
+    ml_enabled: boolean;
+    ml_pit_now_probability: number | null;
+    ml_model_version: string | null;
     expected_rejoin_position: number | null;
     expected_time_delta_to_second_best: number;
     recommendation_summary: string;
@@ -1000,5 +1033,32 @@ export const fetchPrediction = async (
         body: JSON.stringify(params),
     });
     if (!response.ok) throw new Error(`Strategy prediction failed: ${response.status}`);
+    return response.json();
+};
+
+export const trainStrategyModel = async (
+    years: number[],
+    lapStep: number = 1,
+    maxEventsPerYear: number = 8
+): Promise<StrategyModelTrainResponse> => {
+    const params = new URLSearchParams({
+        years: years.join(','),
+        lap_step: String(lapStep),
+        max_events_per_year: String(maxEventsPerYear),
+    });
+
+    const url = `${API_BASE_URL}/api/prediction/strategy/train?${params.toString()}`;
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: getHeaders(),
+    });
+    if (!response.ok) throw new Error(`Strategy model training failed: ${response.status}`);
+    return response.json();
+};
+
+export const fetchStrategyModelInfo = async (): Promise<StrategyModelInfoResponse> => {
+    const url = `${API_BASE_URL}/api/prediction/strategy/model`;
+    const response = await fetch(url, { headers: getHeaders() });
+    if (!response.ok) throw new Error(`Strategy model info fetch failed: ${response.status}`);
     return response.json();
 };

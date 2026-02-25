@@ -1,6 +1,7 @@
 import math
 
 from .engine import EXPECTED_STINT_LENGTH, evaluate_strategy_rules
+from .ml_model import load_strategy_ml_model, predict_pit_now_probability
 from .schemas import (
     ConfidenceFactors,
     RaceState,
@@ -43,6 +44,50 @@ def _scenario_probabilities(outcomes) -> list[ScenarioProbability]:
         )
 
     return probabilities
+
+
+def _blend_with_ml_probabilities(
+    probabilities: list[ScenarioProbability],
+    ml_pit_now_probability: float,
+    alpha: float = 0.35,
+) -> list[ScenarioProbability]:
+    if not probabilities:
+        return probabilities
+
+    ml_pit_now = _clamp(ml_pit_now_probability, 0.0, 1.0)
+    ml_stay_out = 1.0 - ml_pit_now
+    ml_pit_in_2 = (0.3 * ml_pit_now) + (0.3 * ml_stay_out)
+
+    ml_distribution = {
+        "pit_now": ml_pit_now,
+        "pit_in_2_laps": ml_pit_in_2,
+        "stay_out": ml_stay_out,
+    }
+
+    blended = []
+    for item in probabilities:
+        ml_component = ml_distribution.get(item.scenario, 0.0)
+        blended_probability = ((1.0 - alpha) * item.probability) + (alpha * ml_component)
+        blended.append(
+            ScenarioProbability(
+                scenario=item.scenario,
+                probability=blended_probability,
+                time_delta_to_best=item.time_delta_to_best,
+            )
+        )
+
+    total = sum(item.probability for item in blended) or 1.0
+    normalized = [
+        ScenarioProbability(
+            scenario=item.scenario,
+            probability=round(item.probability / total, 3),
+            time_delta_to_best=item.time_delta_to_best,
+        )
+        for item in blended
+    ]
+
+    normalized.sort(key=lambda item: item.probability, reverse=True)
+    return normalized
 
 
 def _confidence_from_factors(
@@ -168,6 +213,17 @@ def predict_best_strategy(
     )
     probabilities = _scenario_probabilities(outcomes)
 
+    ml_payload = load_strategy_ml_model()
+    ml_probability = predict_pit_now_probability(
+        state=state,
+        target_driver=target_driver,
+        model_payload=ml_payload,
+    )
+    ml_enabled = ml_probability is not None
+
+    if ml_enabled:
+        probabilities = _blend_with_ml_probabilities(probabilities, ml_probability)
+
     if tie_detected and second_best is not None:
         predicted_label = "no_clear_winner"
         summary = (
@@ -175,9 +231,12 @@ def predict_best_strategy(
             f"{TIE_THRESHOLD_SECONDS:.1f}s ({time_delta_to_second:.2f}s gap)."
         )
     else:
-        predicted_label = best.scenario
+        if probabilities:
+            predicted_label = probabilities[0].scenario
+        else:
+            predicted_label = best.scenario
         summary = (
-            f"Predicted best option is '{best.scenario}' with ~{time_delta_to_second:.2f}s "
+            f"Predicted best option is '{predicted_label}' with ~{time_delta_to_second:.2f}s "
             f"advantage over the next best scenario."
         )
 
@@ -189,6 +248,9 @@ def predict_best_strategy(
         tie_detected=tie_detected,
         tie_threshold_seconds=TIE_THRESHOLD_SECONDS,
         confidence=confidence,
+        ml_enabled=ml_enabled,
+        ml_pit_now_probability=round(ml_probability, 3) if ml_probability is not None else None,
+        ml_model_version=ml_payload.get("version") if isinstance(ml_payload, dict) else None,
         expected_rejoin_position=best.estimated_rejoin_position,
         expected_time_delta_to_second_best=time_delta_to_second,
         recommendation_summary=summary,

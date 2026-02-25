@@ -7,11 +7,14 @@ import { useQuery } from '@tanstack/react-query';
 import { useSeason } from '@/contexts/SeasonContext';
 import {
   evaluateStrategyState,
+  fetchStrategyModelInfo,
   fetchPrediction,
   fetchReplayTimeline,
   fetchSchedule,
   simulateStrategyScenarios,
+  trainStrategyModel,
   ReplayTick,
+  StrategyModelInfoResponse,
   ScheduleEvent,
   StrategyPredictionResponse,
   StrategyEvaluationResponse,
@@ -28,6 +31,8 @@ const StrategySimulator = () => {
   const [evalResult, setEvalResult] = useState<StrategyEvaluationResponse | null>(null);
   const [simResult, setSimResult] = useState<ScenarioSimulationResponse | null>(null);
   const [predictionResult, setPredictionResult] = useState<StrategyPredictionResponse | null>(null);
+  const [trainStatus, setTrainStatus] = useState<string>('');
+  const [modelInfo, setModelInfo] = useState<StrategyModelInfoResponse | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -66,6 +71,18 @@ const StrategySimulator = () => {
       setSelectedDriver(currentDrivers[0].driver);
     }
   }, [currentDrivers, selectedDriver]);
+
+  useEffect(() => {
+    const loadModelInfo = async () => {
+      try {
+        const info = await fetchStrategyModelInfo();
+        setModelInfo(info);
+      } catch {
+        setModelInfo(null);
+      }
+    };
+    void loadModelInfo();
+  }, []);
 
   const loadReplay = async () => {
     if (!eventSlug) {
@@ -131,6 +148,27 @@ const StrategySimulator = () => {
       setPredictionResult(result);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to predict strategy');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const runTrainModel = async () => {
+    setLoading(true);
+    setError(null);
+    setTrainStatus('Training model...');
+    try {
+      const trainYears = Array.from(new Set([selectedYear, selectedYear - 1])).filter((year) => year >= 2018);
+      const result = await trainStrategyModel(trainYears, 1, 8);
+      setTrainStatus(
+        `Model trained • ${result.training_samples} samples • train acc ${(result.training_accuracy * 100).toFixed(1)}%${typeof result.validation_roc_auc === 'number' ? ` • val AUC ${result.validation_roc_auc.toFixed(3)}` : ''}${typeof result.validation_ece === 'number' ? ` • ECE ${result.validation_ece.toFixed(3)}` : ''}`
+      );
+      const info = await fetchStrategyModelInfo();
+      setModelInfo(info);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : 'Failed to train model';
+      setTrainStatus('Model training failed');
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -247,6 +285,7 @@ const StrategySimulator = () => {
                 <Button onClick={runEvaluation} disabled={loading}>Evaluate Pit Rules</Button>
                 <Button onClick={runSimulation} disabled={loading || !selectedDriver}>Simulate Pit Options</Button>
                 <Button onClick={runPrediction} disabled={loading || !selectedDriver}>Predict Best Strategy</Button>
+                <Button onClick={runTrainModel} disabled={loading} variant="secondary" size="sm">Train Model</Button>
                 <div className="w-[220px]">
                   <Select
                     value={selectedDriver}
@@ -270,14 +309,20 @@ const StrategySimulator = () => {
                   </Select>
                 </div>
               </div>
+              {trainStatus && <div className="text-xs text-gray-400">{trainStatus}</div>}
+              {modelInfo && (
+                <div className="text-xs text-gray-400">
+                  Model Info: {modelInfo.available ? `available${modelInfo.version ? ` • ${modelInfo.version}` : ''}${modelInfo.trained_at ? ` • trained ${new Date(modelInfo.trained_at).toLocaleString()}` : ''}${Array.isArray(modelInfo.years) && modelInfo.years.length ? ` • years ${modelInfo.years.join(', ')}` : ''}${typeof modelInfo.training_samples === 'number' ? ` • samples ${modelInfo.training_samples}` : ''}${typeof modelInfo.training_accuracy === 'number' ? ` • train acc ${(modelInfo.training_accuracy * 100).toFixed(1)}%` : ''}${typeof modelInfo.validation_roc_auc === 'number' ? ` • val AUC ${modelInfo.validation_roc_auc.toFixed(3)}` : ''}${typeof modelInfo.validation_ece === 'number' ? ` • ECE ${modelInfo.validation_ece.toFixed(3)}` : ''}` : 'not trained yet'}
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
 
-        {(evalResult || simResult) && (
+        {(evalResult || simResult || predictionResult) && (
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
             {evalResult && (
-              <Card className={`bg-gray-900/60 border-gray-700 ${!simResult ? 'xl:col-span-2' : ''}`}>
+              <Card className={`bg-gray-900/60 border-gray-700 ${!simResult && !predictionResult ? 'xl:col-span-2' : ''}`}>
                 <CardHeader>
                   <CardTitle>Rule Decisions (Lap {evalResult.lap})</CardTitle>
                 </CardHeader>
@@ -292,46 +337,53 @@ const StrategySimulator = () => {
               </Card>
             )}
 
-            {simResult && (
-              <Card className={`bg-gray-900/60 border-gray-700 ${!evalResult ? 'xl:col-span-2' : ''}`}>
-                <CardHeader>
-                  <CardTitle>Scenario Outcomes (Best: {simResult.best?.scenario ?? 'N/A'})</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                  {simResult.scenarios.map((scenario) => (
-                    <div key={scenario.scenario} className="border border-gray-800 rounded p-2 text-sm">
-                      <div className="font-semibold">{scenario.scenario} {scenario.pit_lap ? `(Pit L${scenario.pit_lap})` : ''}</div>
-                      <div className="text-gray-300">Time: {scenario.estimated_total_time}s • Rejoin: P{scenario.estimated_rejoin_position ?? '-'}</div>
-                      <div className="text-gray-400">{scenario.summary}</div>
-                    </div>
-                  ))}
-                </CardContent>
-              </Card>
+            {(simResult || predictionResult) && (
+              <div className={`space-y-6 ${!evalResult ? 'xl:col-span-2' : ''}`}>
+                {predictionResult && (
+                  <Card className="bg-gray-900/60 border-gray-700">
+                    <CardHeader>
+                      <CardTitle>Prediction</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2 text-sm">
+                      <div className="font-semibold">
+                        Best: {predictionResult.tie_detected ? 'No clear winner' : predictionResult.predicted_best_scenario} ({Math.round(predictionResult.confidence * 100)}% confidence)
+                      </div>
+                      <div className="text-gray-300">
+                        Driver: {predictionResult.target_driver} • Rejoin: P{predictionResult.expected_rejoin_position ?? '-'} • Advantage: {predictionResult.expected_time_delta_to_second_best.toFixed(2)}s
+                      </div>
+                      <div className="text-gray-300">
+                        Tie threshold: {predictionResult.tie_threshold_seconds.toFixed(1)}s • Top probabilities: {predictionResult.scenario_probabilities.slice(0, 3).map((p) => `${p.scenario} ${Math.round(p.probability * 100)}%`).join(' • ')}
+                      </div>
+                      <div className="text-gray-300">
+                        ML: {predictionResult.ml_enabled ? `enabled (${predictionResult.ml_model_version ?? 'unknown model'})` : 'fallback mode'}{predictionResult.ml_pit_now_probability !== null ? ` • Pit-now prob: ${Math.round(predictionResult.ml_pit_now_probability * 100)}%` : ''}
+                      </div>
+                      <div className="text-gray-400">
+                        Factors — margin: {predictionResult.confidence_factors.margin_score.toFixed(2)}, rules: {predictionResult.confidence_factors.rule_agreement_score.toFixed(2)}, tire risk: {predictionResult.confidence_factors.tire_age_risk_score.toFixed(2)}, traffic risk: {predictionResult.confidence_factors.traffic_risk_score.toFixed(2)}, laps: {predictionResult.confidence_factors.laps_remaining_score.toFixed(2)}
+                      </div>
+                      <div className="text-gray-400">{predictionResult.recommendation_summary}</div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                {simResult && (
+                  <Card className="bg-gray-900/60 border-gray-700">
+                    <CardHeader>
+                      <CardTitle>Scenario Outcomes (Best: {simResult.best?.scenario ?? 'N/A'})</CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                      {simResult.scenarios.map((scenario) => (
+                        <div key={scenario.scenario} className="border border-gray-800 rounded p-2 text-sm">
+                          <div className="font-semibold">{scenario.scenario} {scenario.pit_lap ? `(Pit L${scenario.pit_lap})` : ''}</div>
+                          <div className="text-gray-300">Time: {scenario.estimated_total_time}s • Rejoin: P{scenario.estimated_rejoin_position ?? '-'}</div>
+                          <div className="text-gray-400">{scenario.summary}</div>
+                        </div>
+                      ))}
+                    </CardContent>
+                  </Card>
+                )}
+              </div>
             )}
           </div>
-        )}
-
-        {predictionResult && (
-          <Card className="bg-gray-900/60 border-gray-700">
-            <CardHeader>
-              <CardTitle>Prediction</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-2 text-sm">
-              <div className="font-semibold">
-                Best: {predictionResult.tie_detected ? 'No clear winner' : predictionResult.predicted_best_scenario} ({Math.round(predictionResult.confidence * 100)}% confidence)
-              </div>
-              <div className="text-gray-300">
-                Driver: {predictionResult.target_driver} • Rejoin: P{predictionResult.expected_rejoin_position ?? '-'} • Advantage: {predictionResult.expected_time_delta_to_second_best.toFixed(2)}s
-              </div>
-              <div className="text-gray-300">
-                Tie threshold: {predictionResult.tie_threshold_seconds.toFixed(1)}s • Top probabilities: {predictionResult.scenario_probabilities.slice(0, 3).map((p) => `${p.scenario} ${Math.round(p.probability * 100)}%`).join(' • ')}
-              </div>
-              <div className="text-gray-400">
-                Factors — margin: {predictionResult.confidence_factors.margin_score.toFixed(2)}, rules: {predictionResult.confidence_factors.rule_agreement_score.toFixed(2)}, tire risk: {predictionResult.confidence_factors.tire_age_risk_score.toFixed(2)}, traffic risk: {predictionResult.confidence_factors.traffic_risk_score.toFixed(2)}, laps: {predictionResult.confidence_factors.laps_remaining_score.toFixed(2)}
-              </div>
-              <div className="text-gray-400">{predictionResult.recommendation_summary}</div>
-            </CardContent>
-          </Card>
         )}
       </div>
     </div>

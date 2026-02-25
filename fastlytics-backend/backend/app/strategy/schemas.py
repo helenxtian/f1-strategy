@@ -75,6 +75,9 @@ class StrategyPredictionResponse(BaseModel):
     tie_detected: bool = False
     tie_threshold_seconds: float = 0.2
     confidence: float
+    ml_enabled: bool = False
+    ml_pit_now_probability: Optional[float] = None
+    ml_model_version: Optional[str] = None
     expected_rejoin_position: Optional[int] = None
     expected_time_delta_to_second_best: float
     recommendation_summary: str

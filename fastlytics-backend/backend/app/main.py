@@ -15,8 +15,10 @@ from .strategy import (
     StrategyPredictionRequest,
     build_race_state_timeline,
     evaluate_strategy_rules,
+    load_strategy_ml_model,
     evaluate_pit_scenarios,
     predict_best_strategy,
+    train_strategy_ml_model,
 )
 
 app = FastAPI()
@@ -179,6 +181,52 @@ def predict_strategy(request: StrategyPredictionRequest):
         return prediction.model_dump()
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/prediction/strategy/train")
+def train_strategy_prediction_model(years: str = "2023,2024", lap_step: int = 1, max_events_per_year: int = 8):
+    try:
+        parsed_years = [int(value.strip()) for value in years.split(",") if value.strip()]
+        if not parsed_years:
+            raise HTTPException(status_code=400, detail="No valid years provided")
+
+        result = train_strategy_ml_model(
+            years=parsed_years,
+            lap_step=max(1, lap_step),
+            max_events_per_year=max(1, max_events_per_year),
+        )
+        return result
+    except HTTPException:
+        raise
+    except RuntimeError as e:
+        message = str(e)
+        if "No training data was generated" in message:
+            message = f"{message}. Try lap_step=1 and/or include years with completed race data."
+        raise HTTPException(status_code=400, detail=message)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/prediction/strategy/model")
+def get_strategy_prediction_model_info():
+    payload = load_strategy_ml_model()
+    if payload is None:
+        return {"available": False}
+
+    return {
+        "available": True,
+        "version": payload.get("version"),
+        "trained_at": payload.get("trained_at"),
+        "years": payload.get("years"),
+        "training_samples": payload.get("training_samples"),
+        "training_accuracy": payload.get("training_accuracy"),
+        "validation_samples": payload.get("validation_samples"),
+        "validation_accuracy": payload.get("validation_accuracy"),
+        "validation_roc_auc": payload.get("validation_roc_auc"),
+        "validation_brier": payload.get("validation_brier"),
+        "validation_log_loss": payload.get("validation_log_loss"),
+        "validation_ece": payload.get("validation_ece"),
+    }
 
 # --- Driver Standings ---
 @app.get("/api/standings/drivers")
