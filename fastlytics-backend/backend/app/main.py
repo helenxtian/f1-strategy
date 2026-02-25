@@ -6,6 +6,18 @@ from fastf1.ergast import Ergast
 import os
 from functools import lru_cache
 import re
+from typing import Dict, List
+
+from .strategy import (
+    RaceState,
+    ReplayResponse,
+    ScenarioEvaluationRequest,
+    StrategyPredictionRequest,
+    build_race_state_timeline,
+    evaluate_strategy_rules,
+    evaluate_pit_scenarios,
+    predict_best_strategy,
+)
 
 app = FastAPI()
 
@@ -30,6 +42,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+_recent_laps_store: Dict[str, List[float]] = {}
 
 
 def _slugify(value: str) -> str:
@@ -101,6 +115,70 @@ def _resolve_event_row(year: int, identifier: str):
 @app.get("/")
 def root():
     return {"message": "Fastlytics Backend API (Fast-F1 powered)"}
+
+
+@app.get("/api/replay/{year}/{event_slug}", response_model=ReplayResponse)
+def get_replay_timeline(year: int, event_slug: str, session: str = "R", lap_step: int = 1, max_laps: int | None = None):
+    try:
+        event_row = _resolve_event_row(year, event_slug)
+        event_name = str(event_row["EventName"])
+        ff1_session = _session_api_to_fastf1(session)
+
+        timeline = build_race_state_timeline(year=year, event=event_name, session=ff1_session, lap_step=max(1, lap_step))
+        if max_laps is not None:
+            timeline = timeline[:max(0, max_laps)]
+
+        return ReplayResponse(year=year, event=event_name, session=session, ticks=timeline)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/strategy/evaluate")
+def evaluate_strategy(state: RaceState):
+    try:
+        for driver in state.drivers:
+            if driver.last_lap_time is not None:
+                _recent_laps_store.setdefault(driver.driver, []).append(driver.last_lap_time)
+                _recent_laps_store[driver.driver] = _recent_laps_store[driver.driver][-5:]
+
+        evaluation = evaluate_strategy_rules(state, recent_laps_by_driver=_recent_laps_store)
+        return evaluation.model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/strategy/simulate")
+def simulate_strategy(request: ScenarioEvaluationRequest):
+    try:
+        outcomes = evaluate_pit_scenarios(
+            state=request.state,
+            target_driver=request.target_driver,
+            pit_loss_seconds=request.pit_loss_seconds,
+        )
+        return {
+            "target_driver": request.target_driver,
+            "lap": request.state.lap,
+            "total_laps": request.state.total_laps,
+            "scenarios": [outcome.model_dump() for outcome in outcomes],
+            "best": outcomes[0].model_dump() if outcomes else None,
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/prediction/strategy")
+def predict_strategy(request: StrategyPredictionRequest):
+    try:
+        prediction = predict_best_strategy(
+            state=request.state,
+            target_driver=request.target_driver,
+            pit_loss_seconds=request.pit_loss_seconds,
+        )
+        return prediction.model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- Driver Standings ---
 @app.get("/api/standings/drivers")
